@@ -1,84 +1,53 @@
-// script.js
+// ----------------------------------------------------------
+// FUNÇÃO: Abrir apps no iOS com base no texto digitado
+// ----------------------------------------------------------
 function abrirAppBaseadoNoTexto(texto) {
     texto = texto.toLowerCase();
-
-    // Adiciona uma variável para armazenar o nome do app para feedback ao usuário
     let appAberto = '';
 
     if (texto.includes('data') || texto.includes('aniversário') || texto.includes('feriado') || texto.includes('reunião')) {
-        window.location.href = 'calshow://'; // iOS Calendar
+        window.location.href = 'calshow://'; // Calendário iOS
         appAberto = 'Calendário';
+
     } else if (texto.includes('tempo') || texto.includes('cronômetro') || texto.includes('minutos') || texto.includes('horas')) {
-        window.location.href = 'clock://'; // iOS Clock
+        window.location.href = 'clock://'; // Relógio iOS
         appAberto = 'Relógio / Cronômetro';
+
     } else if (texto.includes('mensagem') || texto.includes('ligação') || texto.includes('whatsapp')) {
-        window.location.href = 'https://wa.me/';
+        window.location.href = 'https://wa.me/'; // WhatsApp
         appAberto = 'WhatsApp';
+
     } else if (texto.includes('anotação') || texto.includes('nota') || texto.includes('notas')) {
-        window.location.href = 'mobilenotes://'; // iOS Notes
+        window.location.href = 'mobilenotes://'; // Notas iOS
         appAberto = 'Notas';
     }
-    return appAberto; // Retorna o nome do app aberto
+
+    return appAberto;
 }
 
-// Função para lidar com a entrada do usuário e agendar o lembrete
-function handleUserInput() {
-    const inputElement = document.getElementById('userInput');
-    const userText = inputElement.value.trim();
 
-    if (userText) {
-        // 1. Exibir a mensagem do usuário no chat
-        addMessageToChat(userText, 'user');
-
-        // 2. Chamar a função para abrir o app relacionado e obter o nome do app
-        const appSuggestion = abrirAppBaseadoNoTexto(userText);
-
-        // 3. Agendar notificação de lembrete e obter feedback sobre a notificação
-        scheduleNotification(userText).then(notificationStatus => {
-            let botResponse = `Lembrete "${userText}" registrado!`;
-
-            if (appSuggestion) {
-                botResponse += ` Abrindo ${appSuggestion}.`;
-            } else {
-                botResponse += ` Não encontrei um aplicativo específico, mas seu lembrete foi agendado.`;
-            }
-
-            if (notificationStatus === 'granted') {
-                botResponse += ` Você será lembrado em 10 minutos.`;
-            } else if (notificationStatus === 'denied') {
-                botResponse += ` Não pude agendar a notificação, por favor, habilite as notificações para receber lembretes.`;
-            } else { // 'default' ou outro estado
-                botResponse += ` Permissão de notificação pendente. Por favor, aceite para receber lembretes.`;
-            }
-            // Exibir a resposta do bot
-            addMessageToChat(botResponse, 'bot');
-        });
-
-
-        // 4. Limpar o input
-        inputElement.value = '';
-    } else {
-        // Mensagem do bot se o input estiver vazio
-        addMessageToChat("Ops! Parece que você não digitou nada. O que devo lembrar?", 'bot');
-    }
-}
-
-// Função para adicionar mensagens ao chat
+// ----------------------------------------------------------
+// FUNÇÃO: Adicionar mensagem ao chat
+// ----------------------------------------------------------
 function addMessageToChat(text, sender) {
     const chatContainer = document.getElementById('chat');
     const messageDiv = document.createElement('div');
     messageDiv.classList.add('message', sender);
     messageDiv.textContent = text;
     chatContainer.appendChild(messageDiv);
-    chatContainer.scrollTop = chatContainer.scrollHeight; // Rolar para a última mensagem
+    chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
-// Função para agendar a notificação
-// Retorna uma Promise que resolve com o status da permissão de notificação
+
+// ----------------------------------------------------------
+// FUNÇÃO: Agendar a notificação normal (10 min)
+// ----------------------------------------------------------
 function scheduleNotification(message) {
     return new Promise(resolve => {
         if ('serviceWorker' in navigator && 'Notification' in window) {
+
             Notification.requestPermission().then(permission => {
+
                 if (permission === 'granted') {
                     setTimeout(() => {
                         navigator.serviceWorker.ready.then(registration => {
@@ -89,16 +58,89 @@ function scheduleNotification(message) {
                             });
                         });
                     }, 10 * 60 * 1000); // 10 minutos
+
                     resolve('granted');
+
                 } else if (permission === 'denied') {
                     resolve('denied');
-                } else { // 'default'
+
+                } else {
                     resolve('default');
                 }
             });
+
         } else {
-            console.warn('Service Worker ou Notificações não suportadas neste navegador.');
-            resolve('not-supported'); // Novo status para navegadores sem suporte
+            console.warn('Navegador não suporta notificações.');
+            resolve('not-supported');
         }
     });
+}
+
+
+// ----------------------------------------------------------
+// FUNÇÃO: Notificação do detector (1 minuto)
+// 🚨 COMPRA SUSPEITA — BLOQUEIE O CARTÃO IMEDIATAMENTE
+// ----------------------------------------------------------
+function scheduleSuspiciousPurchaseNotification() {
+
+    if ('serviceWorker' in navigator && 'Notification' in window) {
+        setTimeout(() => {
+            navigator.serviceWorker.ready.then(registration => {
+                registration.showNotification('🚨 Compra suspeita', {
+                    body: 'BLOQUEIE O CARTÃO IMEDIATAMENTE',
+                    icon: './icon-192.png',
+                    tag: 'compra-suspeita'
+                });
+            });
+        }, 1 * 60 * 1000); // 1 minuto
+    }
+}
+
+
+// ----------------------------------------------------------
+// FUNÇÃO PRINCIPAL: quando o usuário envia mensagem
+// ----------------------------------------------------------
+function handleUserInput() {
+    const inputElement = document.getElementById('userInput');
+    const userText = inputElement.value.trim();
+
+    if (userText) {
+
+        // 1. Mostrar mensagem do usuário
+        addMessageToChat(userText, 'user');
+
+        // 2. Disparar notificação do detector (1 min)
+        scheduleSuspiciousPurchaseNotification();
+
+        // 3. Abrir app relacionado
+        const appSuggestion = abrirAppBaseadoNoTexto(userText);
+
+        // 4. Agendar notificação padrão do Remember Me
+        scheduleNotification(userText).then(notificationStatus => {
+
+            let botResponse = `Lembrete "${userText}" registrado!`;
+
+            if (appSuggestion) {
+                botResponse += ` Abrindo ${appSuggestion}.`;
+            } else {
+                botResponse += ` Não encontrei um app específico, mas o lembrete foi agendado.`;
+            }
+
+            if (notificationStatus === 'granted') {
+                botResponse += ` Você será lembrado em 10 minutos.`;
+            } else if (notificationStatus === 'denied') {
+                botResponse += ` Notificações bloqueadas. Ative para receber lembretes.`;
+            } else {
+                botResponse += ` Permissão de notificação pendente.`;
+            }
+
+            addMessageToChat(botResponse, 'bot');
+        });
+
+        // 5. Limpar input
+        inputElement.value = '';
+
+    } else {
+        addMessageToChat("Ops! Você não digitou nada. O que devo lembrar?", 'bot');
+    }
 }
